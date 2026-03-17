@@ -1,5 +1,8 @@
 .PHONY: run build test lint tidy migrate-up migrate-down docker-build docker-up docker-down docker-logs certbot swagger
 
+-include .env
+export
+
 run:
 	go run ./cmd/api
 
@@ -56,10 +59,10 @@ certbot:
 
 # Migrations
 migrate-up:
-	goose -dir migrations postgres "$(DATABASE_URL)" up
+	@source .env && goose -dir migrations postgres "$(DATABASE_URL)" up
 
 migrate-down:
-	goose -dir migrations postgres "$(DATABASE_URL)" down
+	@source .env && goose -dir migrations postgres "$(DATABASE_URL)" down
 
 # Database backup
 db-backup:
