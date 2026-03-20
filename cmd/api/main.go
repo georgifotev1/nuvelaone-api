@@ -8,6 +8,8 @@ import (
 
 	"github.com/georgifotev1/nuvelaone-api/config"
 	"github.com/georgifotev1/nuvelaone-api/pkg/database"
+	"github.com/georgifotev1/nuvelaone-api/pkg/ratelimiter"
+	"github.com/georgifotev1/nuvelaone-api/pkg/redis"
 )
 
 // @title           NuvelaOne API
@@ -24,17 +26,32 @@ func main() {
 		logger.Fatal("failed to load config", zap.Error(err))
 	}
 
-	db, err := database.Connect(cfg.DatabaseURL)
+	db, err := database.Connect(cfg.DB.URL)
 	if err != nil {
 		logger.Fatal("failed to connect to database", zap.Error(err))
 	}
 	defer db.Close()
 	logger.Info("database connection established")
 
+	redisClient := redis.NewRedisClient(cfg.Redis.Addr, cfg.Redis.PW, cfg.Redis.DB)
+	defer redisClient.Close()
+	logger.Info("redis connection established")
+
+	var rateLimiter ratelimiter.Limiter
+	if cfg.RateLimiter.Enabled {
+		rateLimiter = ratelimiter.NewFixedWindowLimiter(
+			cfg.RateLimiter.RequestsPerTimeFrame,
+			cfg.RateLimiter.TimeFrame,
+		)
+		logger.Info("rate limiter enabled")
+	}
+
 	app := &application{
-		config: cfg,
-		db:     db,
-		logger: logger,
+		config:      cfg,
+		db:          db,
+		redis:       redisClient,
+		rateLimiter: rateLimiter,
+		logger:      logger,
 	}
 
 	if err := app.run(); err != nil {

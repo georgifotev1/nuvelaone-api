@@ -11,32 +11,38 @@ import (
 	"time"
 
 	"github.com/georgifotev1/nuvelaone-api/config"
+	"github.com/georgifotev1/nuvelaone-api/internal/cache"
 	"github.com/georgifotev1/nuvelaone-api/internal/handler"
+	"github.com/georgifotev1/nuvelaone-api/internal/middleware"
 	"github.com/georgifotev1/nuvelaone-api/internal/repository"
 	"github.com/georgifotev1/nuvelaone-api/internal/service"
 	"github.com/georgifotev1/nuvelaone-api/pkg/jsonutil"
+	"github.com/georgifotev1/nuvelaone-api/pkg/ratelimiter"
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"go.uber.org/zap"
 )
 
 type application struct {
-	config *config.Config
-	db     *pgxpool.Pool
-	logger *zap.SugaredLogger
+	config      *config.Config
+	db          *pgxpool.Pool
+	redis       *redis.Client
+	rateLimiter ratelimiter.Limiter
+	logger      *zap.SugaredLogger
 }
 
 func (app *application) mount() http.Handler {
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
+	r.Use(chiMiddleware.RequestID)
+	r.Use(chiMiddleware.RealIP)
+	r.Use(chiMiddleware.Logger)
+	r.Use(chiMiddleware.Recoverer)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   strings.Split(app.config.AllowedOrigins, ","),
+		AllowedOrigins:   strings.Split(app.config.CORS.AllowedOrigins, ","),
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
@@ -44,9 +50,15 @@ func (app *application) mount() http.Handler {
 		MaxAge:           300,
 	}))
 
-	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(chiMiddleware.Timeout(60 * time.Second))
 
-	userRepo := repository.NewUserRepository(app.db)
+	if app.rateLimiter != nil {
+		r.Use(middleware.RateLimit(app.rateLimiter))
+	}
+
+	c := cache.New(app.redis)
+
+	userRepo := repository.NewUserRepository(app.db, c.Users)
 	userSvc := service.NewUserService(userRepo)
 	userHandler := handler.NewUserHandler(userSvc)
 
@@ -59,7 +71,7 @@ func (app *application) mount() http.Handler {
 		))
 
 		// Protected routes — uncomment to enable JWT auth:
-		// r.Use(middleware.JWTAuth(cfg.JWTSecret))
+		// r.Use(middleware.JWTAuth(cfg.Auth.JWTSecret))
 		r.Route("/users", userHandler.Routes)
 	})
 
@@ -68,7 +80,7 @@ func (app *application) mount() http.Handler {
 
 func (app *application) run() error {
 	srv := &http.Server{
-		Addr:         ":" + app.config.Port,
+		Addr:         ":" + app.config.Address.Port,
 		Handler:      app.mount(),
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
@@ -76,7 +88,7 @@ func (app *application) run() error {
 	}
 
 	go func() {
-		app.logger.Info("server starting on port " + app.config.Port)
+		app.logger.Info("server starting on port " + app.config.Address.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			app.logger.Fatal("server error", zap.Error(err))
 		}

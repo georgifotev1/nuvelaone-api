@@ -7,7 +7,7 @@ import (
 
 	"github.com/georgifotev1/nuvelaone-api/internal/domain"
 	"github.com/georgifotev1/nuvelaone-api/internal/repository"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/georgifotev1/nuvelaone-api/pkg/auth"
 )
 
 // ErrNotFound is returned when a resource does not exist.
@@ -18,11 +18,11 @@ var ErrConflict = errors.New("already exists")
 
 // UserService defines the business operations for users.
 type UserService interface {
-	GetByID(ctx context.Context, id int64) (*domain.User, error)
+	GetByID(ctx context.Context, id string) (*domain.User, error)
 	List(ctx context.Context) ([]domain.User, error)
 	Create(ctx context.Context, req domain.CreateUserRequest) (*domain.User, error)
-	Update(ctx context.Context, id int64, req domain.UpdateUserRequest) (*domain.User, error)
-	Delete(ctx context.Context, id int64) error
+	Update(ctx context.Context, id string, req domain.UpdateUserRequest) (*domain.User, error)
+	Delete(ctx context.Context, id string) error
 }
 
 type userService struct {
@@ -34,7 +34,7 @@ func NewUserService(repo repository.UserRepository) UserService {
 	return &userService{repo: repo}
 }
 
-func (s *userService) GetByID(ctx context.Context, id int64) (*domain.User, error) {
+func (s *userService) GetByID(ctx context.Context, id string) (*domain.User, error) {
 	user, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("userService.GetByID: %w", ErrNotFound)
@@ -53,7 +53,7 @@ func (s *userService) Create(ctx context.Context, req domain.CreateUserRequest) 
 		return nil, ErrConflict
 	}
 
-	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	hashed, err := auth.HashPassword(req.Password)
 	if err != nil {
 		return nil, fmt.Errorf("userService.Create hash: %w", err)
 	}
@@ -69,7 +69,7 @@ func (s *userService) Create(ctx context.Context, req domain.CreateUserRequest) 
 	return user, nil
 }
 
-func (s *userService) Update(ctx context.Context, id int64, req domain.UpdateUserRequest) (*domain.User, error) {
+func (s *userService) Update(ctx context.Context, id string, req domain.UpdateUserRequest) (*domain.User, error) {
 	user, err := s.repo.GetByID(ctx, id)
 	if err != nil {
 		return nil, ErrNotFound
@@ -83,7 +83,7 @@ func (s *userService) Update(ctx context.Context, id int64, req domain.UpdateUse
 	return user, nil
 }
 
-func (s *userService) Delete(ctx context.Context, id int64) error {
+func (s *userService) Delete(ctx context.Context, id string) error {
 	if err := s.repo.Delete(ctx, id); err != nil {
 		return fmt.Errorf("userService.Delete: %w", err)
 	}

@@ -2,7 +2,6 @@ package handler
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/georgifotev1/nuvelaone-api/internal/domain"
 	"github.com/georgifotev1/nuvelaone-api/internal/service"
@@ -142,6 +141,6 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func parseID(r *http.Request) (int64, error) {
-	return strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+func parseID(r *http.Request) (string, error) {
+	return chi.URLParam(r, "id"), nil
 }
