@@ -16,13 +16,14 @@ import (
 	"github.com/georgifotev1/nuvelaone-api/internal/middleware"
 	"github.com/georgifotev1/nuvelaone-api/internal/repository"
 	"github.com/georgifotev1/nuvelaone-api/internal/service"
+	"github.com/georgifotev1/nuvelaone-api/internal/tasks"
 	"github.com/georgifotev1/nuvelaone-api/pkg/jsonutil"
-	"github.com/georgifotev1/nuvelaone-api/pkg/logger"
 	"github.com/georgifotev1/nuvelaone-api/pkg/mailer"
 	"github.com/georgifotev1/nuvelaone-api/pkg/ratelimiter"
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -35,7 +36,9 @@ type application struct {
 	redis       *redis.Client
 	rateLimiter ratelimiter.Limiter
 	mailer      mailer.Mailer
-	logger      logger.Logger
+	logger      *zap.SugaredLogger
+	taskClient  *asynq.Client
+	taskServer  *asynq.Server
 }
 
 func (app *application) mount() http.Handler {
@@ -62,7 +65,7 @@ func (app *application) mount() http.Handler {
 	c := cache.New(app.redis)
 
 	userRepo := repository.NewUserRepository(app.db, c.Users)
-	userSvc := service.NewUserService(userRepo)
+	userSvc := service.NewUserService(userRepo, app.taskClient)
 	userHandler := handler.NewUserHandler(userSvc)
 
 	r.Route("/api/v1", func(r chi.Router) {
@@ -80,8 +83,16 @@ func (app *application) mount() http.Handler {
 
 	return r
 }
-
 func (app *application) run() error {
+	go func() {
+		if err := app.taskServer.Run(tasks.RegisterTasks(&tasks.TaskHandlerDeps{
+			Mailer: app.mailer,
+			Logger: app.logger,
+		})); err != nil {
+			app.logger.Errorw("task server error", "error", err)
+		}
+	}()
+
 	srv := &http.Server{
 		Addr:         ":" + app.config.Address.Port,
 		Handler:      app.mount(),
@@ -91,9 +102,9 @@ func (app *application) run() error {
 	}
 
 	go func() {
-		app.logger.Info("server starting on port " + app.config.Address.Port)
+		app.logger.Infow("server starting", "port", app.config.Address.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			app.logger.Fatal("server error", zap.Error(err))
+			app.logger.Fatalw("server error", "error", err)
 		}
 	}()
 
@@ -102,13 +113,16 @@ func (app *application) run() error {
 	<-quit
 
 	app.logger.Info("shutting down server...")
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-
 	if err := srv.Shutdown(ctx); err != nil {
 		return fmt.Errorf("forced shutdown: %w", err)
 	}
+	app.logger.Info("http server stopped")
 
-	app.logger.Info("server stopped")
+	app.taskServer.Shutdown()
+	app.logger.Info("task server stopped")
+
 	return nil
 }

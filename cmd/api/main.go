@@ -1,14 +1,16 @@
 package main
 
 import (
+	"context"
+
 	_ "github.com/georgifotev1/nuvelaone-api/docs"
+	"github.com/hibiken/asynq"
 	_ "github.com/jackc/pgx/v5"
 	_ "github.com/swaggo/http-swagger"
 	"go.uber.org/zap"
 
 	"github.com/georgifotev1/nuvelaone-api/config"
 	"github.com/georgifotev1/nuvelaone-api/pkg/database"
-	"github.com/georgifotev1/nuvelaone-api/pkg/logger"
 	"github.com/georgifotev1/nuvelaone-api/pkg/mailer"
 	"github.com/georgifotev1/nuvelaone-api/pkg/ratelimiter"
 	"github.com/georgifotev1/nuvelaone-api/pkg/redis"
@@ -25,7 +27,7 @@ func main() {
 		panic("failed to load config: " + err.Error())
 	}
 
-	log := logger.NewZapLogger(cfg.Env == "development")
+	log := zap.Must(zap.NewProduction()).Sugar()
 	defer log.Sync()
 
 	db, err := database.Connect(cfg.DB.URL)
@@ -35,9 +37,19 @@ func main() {
 	defer db.Close()
 	log.Info("database connection established")
 
-	redisClient := redis.NewRedisClient(cfg.Redis.Addr, cfg.Redis.PW, cfg.Redis.DB)
+	redisOpt := redis.NewRedisOpts(cfg.Redis.Addr, cfg.Redis.PW, cfg.Redis.DB)
+
+	redisClient := redis.NewRedisClient(redisOpt)
 	defer redisClient.Close()
+
 	log.Info("redis connection established")
+
+	taskServer := asynq.NewServer(redisOpt, asynq.Config{
+		Concurrency: 10,
+		ErrorHandler: asynq.ErrorHandlerFunc(func(ctx context.Context, task *asynq.Task, err error) {
+			log.Errorw("task failed", "type", task.Type(), "error", err)
+		}),
+	})
 
 	var rateLimiter ratelimiter.Limiter
 	if cfg.RateLimiter.Enabled {
@@ -49,8 +61,10 @@ func main() {
 	}
 
 	var mail mailer.Mailer
+	var taskClient *asynq.Client
 	if cfg.Resend.APIKey != "" && cfg.Resend.FromEmail != "" {
 		mail = mailer.NewResendClient(cfg.Resend.APIKey, cfg.Resend.FromEmail)
+		taskClient = asynq.NewClient(redisOpt)
 		log.Info("email mailer initialized")
 	}
 
@@ -61,6 +75,8 @@ func main() {
 		rateLimiter: rateLimiter,
 		mailer:      mail,
 		logger:      log,
+		taskClient:  taskClient,
+		taskServer:  taskServer,
 	}
 
 	if err := app.run(); err != nil {

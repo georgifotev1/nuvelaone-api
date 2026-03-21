@@ -7,7 +7,9 @@ import (
 
 	"github.com/georgifotev1/nuvelaone-api/internal/domain"
 	"github.com/georgifotev1/nuvelaone-api/internal/repository"
+	"github.com/georgifotev1/nuvelaone-api/internal/tasks"
 	"github.com/georgifotev1/nuvelaone-api/pkg/auth"
+	"github.com/hibiken/asynq"
 )
 
 // ErrNotFound is returned when a resource does not exist.
@@ -26,12 +28,13 @@ type UserService interface {
 }
 
 type userService struct {
-	repo repository.UserRepository
+	repo       repository.UserRepository
+	taskClient *asynq.Client
 }
 
 // NewUserService creates a new UserService.
-func NewUserService(repo repository.UserRepository) UserService {
-	return &userService{repo: repo}
+func NewUserService(repo repository.UserRepository, taskClient *asynq.Client) UserService {
+	return &userService{repo: repo, taskClient: taskClient}
 }
 
 func (s *userService) GetByID(ctx context.Context, id string) (*domain.User, error) {
@@ -66,6 +69,18 @@ func (s *userService) Create(ctx context.Context, req domain.CreateUserRequest) 
 	if err := s.repo.Create(ctx, user); err != nil {
 		return nil, fmt.Errorf("userService.Create: %w", err)
 	}
+
+	if s.taskClient != nil {
+		task, err := tasks.NewWelcomeEmailTask(tasks.WelcomeEmailPayload{
+			UserID: user.ID,
+			Email:  user.Email,
+			Name:   user.Name,
+		})
+		if err != nil {
+			s.taskClient.Enqueue(task)
+		}
+	}
+
 	return user, nil
 }
 
