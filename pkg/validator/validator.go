@@ -12,7 +12,7 @@ func init() {
 	validate = validator.New()
 }
 
-func Validate(s interface{}) error {
+func Validate(s any) error {
 	if err := validate.Struct(s); err != nil {
 		verr, ok := err.(validator.ValidationErrors)
 		if !ok {

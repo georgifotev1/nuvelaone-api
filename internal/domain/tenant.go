@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+	"unicode"
+)
 
 type Tenant struct {
 	ID        string    `json:"id"`
@@ -20,4 +24,16 @@ type WorkingHours struct {
 	OpensAt   string `json:"opens_at"`
 	ClosesAt  string `json:"closes_at"`
 	IsClosed  bool   `json:"is_closed"`
+}
+
+func NewSlug(name string) string {
+	var result strings.Builder
+	for _, r := range strings.ToLower(name) {
+		if unicode.IsLetter(r) || unicode.IsDigit(r) {
+			result.WriteRune(r)
+		} else if r == ' ' || r == '-' || r == '_' {
+			result.WriteRune('-')
+		}
+	}
+	return result.String()
 }

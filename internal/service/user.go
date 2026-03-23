@@ -4,21 +4,22 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/georgifotev1/nuvelaone-api/internal/domain"
 	"github.com/georgifotev1/nuvelaone-api/internal/repository"
 	"github.com/georgifotev1/nuvelaone-api/internal/tasks"
+	"github.com/georgifotev1/nuvelaone-api/internal/txmanager"
 	"github.com/georgifotev1/nuvelaone-api/pkg/auth"
 	"github.com/hibiken/asynq"
+	"github.com/segmentio/ksuid"
+	"go.uber.org/zap"
 )
 
-// ErrNotFound is returned when a resource does not exist.
-var ErrNotFound = errors.New("not found")
+type TaskEnqueuer interface {
+	Enqueue(task *asynq.Task, opts ...asynq.Option) (*asynq.TaskInfo, error)
+}
 
-// ErrConflict is returned when a resource already exists.
-var ErrConflict = errors.New("already exists")
-
-// UserService defines the business operations for users.
 type UserService interface {
 	GetByID(ctx context.Context, id string) (*domain.User, error)
 	List(ctx context.Context) ([]domain.User, error)
@@ -28,45 +29,80 @@ type UserService interface {
 }
 
 type userService struct {
-	repo       repository.UserRepository
-	taskClient *asynq.Client
+	userRepo   repository.UserRepository
+	tenantRepo repository.TenantRepository
+	txManager  txmanager.TxManager
+	taskClient TaskEnqueuer
+	logger     *zap.SugaredLogger
 }
 
-// NewUserService creates a new UserService.
-func NewUserService(repo repository.UserRepository, taskClient *asynq.Client) UserService {
-	return &userService{repo: repo, taskClient: taskClient}
+func NewUserService(
+	userRepo repository.UserRepository,
+	tenantRepo repository.TenantRepository,
+	txManager txmanager.TxManager,
+	taskClient TaskEnqueuer,
+	logger *zap.SugaredLogger,
+) UserService {
+	return &userService{
+		userRepo:   userRepo,
+		tenantRepo: tenantRepo,
+		txManager:  txManager,
+		taskClient: taskClient,
+		logger:     logger,
+	}
 }
 
 func (s *userService) GetByID(ctx context.Context, id string) (*domain.User, error) {
-	user, err := s.repo.GetByID(ctx, id)
+	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
-		return nil, fmt.Errorf("userService.GetByID: %w", ErrNotFound)
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("userService.GetByID: %w", err)
 	}
 	return user, nil
 }
 
 func (s *userService) List(ctx context.Context) ([]domain.User, error) {
-	return s.repo.List(ctx)
+	return s.userRepo.List(ctx)
 }
 
 func (s *userService) Create(ctx context.Context, req domain.CreateUserRequest) (*domain.User, error) {
-	// Check for duplicate email
-	existing, _ := s.repo.GetByEmail(ctx, req.Email)
-	if existing != nil {
-		return nil, ErrConflict
-	}
-
 	hashed, err := auth.HashPassword(req.Password)
 	if err != nil {
 		return nil, fmt.Errorf("userService.Create hash: %w", err)
 	}
 
+	now := time.Now()
+	tenant := &domain.Tenant{
+		ID:        ksuid.New().String(),
+		Name:      req.Name,
+		Slug:      domain.NewSlug(req.Name),
+		Phone:     req.Phone,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
 	user := &domain.User{
-		Email:    req.Email,
-		Password: string(hashed),
+		ID:        ksuid.New().String(),
+		Email:     req.Email,
+		Password:  string(hashed),
+		Name:      req.Name,
+		Phone:     req.Phone,
+		TenantID:  tenant.ID,
+		Role:      req.Role,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 
-	if err := s.repo.Create(ctx, user); err != nil {
+	if err := s.txManager.WithTx(ctx, func(ctx context.Context) error {
+		if err := s.tenantRepo.Create(ctx, tenant); err != nil {
+			return err
+		}
+		return s.userRepo.Create(ctx, user)
+	}); err != nil {
+		if errors.Is(err, repository.ErrDuplicate) {
+			return nil, ErrConflict
+		}
 		return nil, fmt.Errorf("userService.Create: %w", err)
 	}
 
@@ -77,7 +113,11 @@ func (s *userService) Create(ctx context.Context, req domain.CreateUserRequest) 
 			Name:   user.Name,
 		})
 		if err != nil {
-			s.taskClient.Enqueue(task)
+			s.logger.Warnw("failed to create welcome email task", "error", err, "userID", user.ID)
+		} else {
+			if _, err := s.taskClient.Enqueue(task); err != nil {
+				s.logger.Warnw("failed to enqueue welcome email", "error", err, "userID", user.ID)
+			}
 		}
 	}
 
@@ -85,21 +125,24 @@ func (s *userService) Create(ctx context.Context, req domain.CreateUserRequest) 
 }
 
 func (s *userService) Update(ctx context.Context, id string, req domain.UpdateUserRequest) (*domain.User, error) {
-	user, err := s.repo.GetByID(ctx, id)
+	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
-		return nil, ErrNotFound
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("userService.Update: %w", err)
 	}
 	if req.Email != "" {
 		user.Email = req.Email
 	}
-	if err := s.repo.Update(ctx, user); err != nil {
+	if err := s.userRepo.Update(ctx, user); err != nil {
 		return nil, fmt.Errorf("userService.Update: %w", err)
 	}
 	return user, nil
 }
 
 func (s *userService) Delete(ctx context.Context, id string) error {
-	if err := s.repo.Delete(ctx, id); err != nil {
+	if err := s.userRepo.Delete(ctx, id); err != nil {
 		return fmt.Errorf("userService.Delete: %w", err)
 	}
 	return nil

@@ -10,17 +10,14 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// UserHandler handles HTTP requests for the user resource.
 type UserHandler struct {
 	svc service.UserService
 }
 
-// NewUserHandler creates a new UserHandler.
 func NewUserHandler(svc service.UserService) *UserHandler {
 	return &UserHandler{svc: svc}
 }
 
-// Routes registers all user routes on the provided router.
 func (h *UserHandler) Routes(r chi.Router) {
 	r.Get("/", h.List)
 	r.Post("/", h.Create)
@@ -29,28 +26,15 @@ func (h *UserHandler) Routes(r chi.Router) {
 	r.Delete("/{id}", h.Delete)
 }
 
-// List godoc
-// @Summary  List all users
-// @Tags     users
-// @Produce  json
-// @Success  200 {array} domain.User
-// @Router   /users [get]
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 	users, err := h.svc.List(r.Context())
 	if err != nil {
-		jsonutil.WriteError(w, http.StatusInternalServerError, "failed to list users")
+		handleError(w, err)
 		return
 	}
 	jsonutil.Write(w, http.StatusOK, users)
 }
 
-// GetByID godoc
-// @Summary  Get user by ID
-// @Tags     users
-// @Produce  json
-// @Param    id path int true "User ID"
-// @Success  200 {object} domain.User
-// @Router   /users/{id} [get]
 func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
@@ -59,20 +43,12 @@ func (h *UserHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := h.svc.GetByID(r.Context(), id)
 	if err != nil {
-		jsonutil.WriteError(w, http.StatusNotFound, "user not found")
+		handleError(w, err)
 		return
 	}
-	jsonutil.Write(w, http.StatusOK, user)
+	jsonutil.Write(w, http.StatusOK, jsonutil.NewResponse(user))
 }
 
-// Create godoc
-// @Summary  Create a user
-// @Tags     users
-// @Accept   json
-// @Produce  json
-// @Param    body body domain.CreateUserRequest true "User payload"
-// @Success  201 {object} domain.User
-// @Router   /users [post]
 func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req domain.CreateUserRequest
 	if err := jsonutil.Read(r, &req); err != nil {
@@ -85,25 +61,12 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := h.svc.Create(r.Context(), req)
 	if err != nil {
-		if err == service.ErrConflict {
-			jsonutil.WriteError(w, http.StatusConflict, "email already in use")
-			return
-		}
-		jsonutil.WriteError(w, http.StatusInternalServerError, "failed to create user")
+		handleError(w, err)
 		return
 	}
-	jsonutil.Write(w, http.StatusCreated, user)
+	jsonutil.Write(w, http.StatusCreated, jsonutil.NewResponse(user))
 }
 
-// Update godoc
-// @Summary  Update a user
-// @Tags     users
-// @Accept   json
-// @Produce  json
-// @Param    id   path int                       true "User ID"
-// @Param    body body domain.UpdateUserRequest  true "Update payload"
-// @Success  200 {object} domain.User
-// @Router   /users/{id} [put]
 func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
@@ -117,22 +80,12 @@ func (h *UserHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	user, err := h.svc.Update(r.Context(), id, req)
 	if err != nil {
-		if err == service.ErrNotFound {
-			jsonutil.WriteError(w, http.StatusNotFound, "user not found")
-			return
-		}
-		jsonutil.WriteError(w, http.StatusInternalServerError, "failed to update user")
+		handleError(w, err)
 		return
 	}
-	jsonutil.Write(w, http.StatusOK, user)
+	jsonutil.Write(w, http.StatusOK, jsonutil.NewResponse(user))
 }
 
-// Delete godoc
-// @Summary  Delete a user
-// @Tags     users
-// @Param    id path int true "User ID"
-// @Success  204
-// @Router   /users/{id} [delete]
 func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	if id == "" {
@@ -140,7 +93,7 @@ func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.svc.Delete(r.Context(), id); err != nil {
-		jsonutil.WriteError(w, http.StatusInternalServerError, "failed to delete user")
+		handleError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

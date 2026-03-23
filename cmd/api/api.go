@@ -17,6 +17,7 @@ import (
 	"github.com/georgifotev1/nuvelaone-api/internal/repository"
 	"github.com/georgifotev1/nuvelaone-api/internal/service"
 	"github.com/georgifotev1/nuvelaone-api/internal/tasks"
+	"github.com/georgifotev1/nuvelaone-api/internal/txmanager"
 	"github.com/georgifotev1/nuvelaone-api/pkg/jsonutil"
 	"github.com/georgifotev1/nuvelaone-api/pkg/mailer"
 	"github.com/georgifotev1/nuvelaone-api/pkg/ratelimiter"
@@ -63,9 +64,11 @@ func (app *application) mount() http.Handler {
 	}
 
 	c := cache.New(app.redis)
+	txManager := txmanager.NewTxManager(app.db)
 
+	tenantRepo := repository.NewTenantRepository(app.db)
 	userRepo := repository.NewUserRepository(app.db, c.Users)
-	userSvc := service.NewUserService(userRepo, app.taskClient)
+	userSvc := service.NewUserService(userRepo, tenantRepo, txManager, app.taskClient, app.logger)
 	userHandler := handler.NewUserHandler(userSvc)
 
 	r.Route("/api/v1", func(r chi.Router) {
