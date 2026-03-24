@@ -58,8 +58,8 @@ func (r *tenantRepository) GetByID(ctx context.Context, id string) (*domain.Tena
 
 func (r *tenantRepository) Create(ctx context.Context, tenant *domain.Tenant) error {
 	query := `
-		INSERT INTO tenants (id, name, slug, phone, email, address_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`
+		INSERT INTO tenants (id, name, slug, phone, email, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)`
 
 	_, err := r.dbFromContext(ctx).Exec(ctx, query,
 		tenant.ID,
@@ -67,7 +67,6 @@ func (r *tenantRepository) Create(ctx context.Context, tenant *domain.Tenant) er
 		tenant.Slug,
 		tenant.Phone,
 		tenant.Email,
-		tenant.AddressID,
 		tenant.CreatedAt,
 		tenant.UpdatedAt,
 	)

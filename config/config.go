@@ -28,7 +28,9 @@ type DBConfig struct {
 }
 
 type AuthConfig struct {
-	JWTSecret string
+	JWTSecret       string
+	AccessTokenTTL  time.Duration
+	RefreshTokenTTL time.Duration
 }
 
 type CORSConfig struct {
@@ -49,8 +51,9 @@ type RateLimiterConfig struct {
 }
 
 type ResendConfig struct {
-	APIKey    string
-	FromEmail string
+	APIKey           string
+	FromEmail        string
+	DevEmailOverride string
 }
 
 func Load() (*Config, error) {
@@ -66,7 +69,9 @@ func Load() (*Config, error) {
 			URL: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/mydb?sslmode=disable"),
 		},
 		Auth: AuthConfig{
-			JWTSecret: getEnv("JWT_SECRET", "change-me-in-production"),
+			JWTSecret:       getEnv("JWT_SECRET", "change-me-in-production"),
+			AccessTokenTTL:  getEnvDuration("ACCESS_TOKEN_TTL", 15*time.Minute),
+			RefreshTokenTTL: getEnvDuration("REFRESH_TOKEN_TTL", 720*time.Hour),
 		},
 		CORS: CORSConfig{
 			AllowedOrigins: getEnv("CORS_ALLOWED_ORIGIN", "http://localhost:5174"),
@@ -83,8 +88,9 @@ func Load() (*Config, error) {
 			TimeFrame:            getEnvDuration("RATE_LIMITER_WINDOW", 1*time.Minute),
 		},
 		Resend: ResendConfig{
-			APIKey:    getEnv("RESEND_API_KEY", ""),
-			FromEmail: getEnv("RESEND_FROM_EMAIL", ""),
+			APIKey:           getEnv("RESEND_API_KEY", ""),
+			FromEmail:        getEnv("RESEND_FROM_EMAIL", "onboarding@resend.dev"),
+			DevEmailOverride: getEnv("RESEND_DEV_EMAIL_OVERRIDE", ""),
 		},
 		Env:    getEnv("ENV", "development"),
 		ApiUrl: getEnv("API_URL", "localhost:8080"),

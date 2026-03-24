@@ -12,7 +12,8 @@ const (
 	TaskMaxRetry = 5
 	TaskTimeout  = 30 * time.Second
 
-	TypeWelcomeEmail = "email:welcome"
+	TypeWelcomeEmail         = "email:welcome"
+	TypeCleanupExpiredTokens = "token:cleanup"
 )
 
 type WelcomeEmailPayload struct {
@@ -30,4 +31,12 @@ func NewWelcomeEmailTask(p WelcomeEmailPayload) (*asynq.Task, error) {
 		asynq.MaxRetry(TaskMaxRetry),
 		asynq.Timeout(TaskTimeout),
 	), nil
+}
+
+func NewCleanupExpiredTokensTask() *asynq.Task {
+	// no payload, no error possible — simplify the signature
+	return asynq.NewTask(TypeCleanupExpiredTokens, nil,
+		asynq.MaxRetry(1),
+		asynq.Timeout(60*time.Second),
+	)
 }

@@ -1,30 +1,78 @@
 basePath: /api/v1
+consumes:
+- application/json
 definitions:
-  github_com_georgifotev1_nuvelaone-api_internal_domain.CreateUserRequest:
+  github_com_georgifotev1_nuvelaone-api_internal_domain.LoginRequest:
     properties:
       email:
         type: string
       password:
-        minLength: 8
         type: string
     required:
     - email
     - password
     type: object
+  github_com_georgifotev1_nuvelaone-api_internal_domain.RegisterRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      password:
+        minLength: 8
+        type: string
+      phone:
+        type: string
+    required:
+    - email
+    - name
+    - password
+    type: object
+  github_com_georgifotev1_nuvelaone-api_internal_domain.Role:
+    enum:
+    - admin
+    - owner
+    - member
+    type: string
+    x-enum-varnames:
+    - RoleAdmin
+    - RoleOwner
+    - RoleMember
   github_com_georgifotev1_nuvelaone-api_internal_domain.UpdateUserRequest:
     properties:
       email:
         type: string
+      name:
+        type: string
+      phone:
+        type: string
     type: object
   github_com_georgifotev1_nuvelaone-api_internal_domain.User:
     properties:
+      avatar:
+        type: string
       created_at:
         type: string
       email:
         type: string
       id:
-        type: integer
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      role:
+        $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.Role'
+      tenant_id:
+        type: string
       updated_at:
+        type: string
+      verified:
+        type: boolean
+    type: object
+  github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse:
+    properties:
+      error:
         type: string
     type: object
 host: localhost:8080
@@ -34,8 +82,141 @@ info:
   title: NuvelaOne API
   version: 1.0.0
 paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user with email and password, returns access token
+        and sets refresh token cookie
+      parameters:
+      - description: Login request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      summary: Login user
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Invalidate refresh token and clear cookie
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      security:
+      - RefreshToken: []
+      summary: Logout user
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Use refresh token cookie to get a new access token
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      security:
+      - RefreshToken: []
+      summary: Refresh access token
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a new user with email, password and name
+      parameters:
+      - description: Register request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      summary: Register a new user
+      tags:
+      - auth
+  /me:
+    get:
+      description: Get the authenticated user's profile
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.User'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - users
   /users:
     get:
+      description: Get all users (admin/owner only)
       produces:
       - application/json
       responses:
@@ -45,50 +226,60 @@ paths:
             items:
               $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.User'
             type: array
-      summary: List all users
-      tags:
-      - users
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: User payload
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.CreateUserRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
+        "401":
+          description: Unauthorized
           schema:
-            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.User'
-      summary: Create a user
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List all users
       tags:
       - users
   /users/{id}:
     delete:
+      description: Delete a user by ID (admin/owner only)
       parameters:
       - description: User ID
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       responses:
         "204":
           description: No Content
-      summary: Delete a user
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete user
       tags:
       - users
     get:
+      description: Get a specific user by ID (admin/owner only)
       parameters:
       - description: User ID
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       produces:
       - application/json
       responses:
@@ -96,21 +287,40 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      security:
+      - BearerAuth: []
       summary: Get user by ID
       tags:
       - users
     put:
       consumes:
       - application/json
+      description: Update a user's information (admin/owner only)
       parameters:
       - description: User ID
         in: path
         name: id
         required: true
-        type: integer
-      - description: Update payload
+        type: string
+      - description: Update request
         in: body
-        name: body
+        name: request
         required: true
         schema:
           $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.UpdateUserRequest'
@@ -121,7 +331,35 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.User'
-      summary: Update a user
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update user
       tags:
       - users
+produces:
+- application/json
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

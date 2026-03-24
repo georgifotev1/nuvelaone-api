@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"embed"
 	"fmt"
-	"html/template"
-
 	"github.com/resend/resend-go/v3"
+	"html/template"
 )
 
 //go:embed templates/*.html
@@ -15,18 +14,21 @@ var templates embed.FS
 type resendClient struct {
 	client    *resend.Client
 	fromEmail string
+	devEmail  string
 }
 
-func NewResendClient(apiKey, fromEmail string) Mailer {
+func NewResendClient(apiKey, fromEmail, devEmail string) Mailer {
 	return &resendClient{
 		client:    resend.NewClient(apiKey),
 		fromEmail: fromEmail,
+		devEmail:  devEmail,
 	}
 }
 
 func (r *resendClient) Send(email EmailData) error {
-	if email.From == "" {
-		email.From = r.fromEmail
+	to := email.To
+	if r.devEmail != "" {
+		to = []string{r.devEmail}
 	}
 
 	templatePath := "templates/" + email.Template + ".html"
@@ -45,9 +47,14 @@ func (r *resendClient) Send(email EmailData) error {
 		return fmt.Errorf("mailer.Send: execute template %s: %w", email.Template, err)
 	}
 
+	from := email.From
+	if from == "" {
+		from = r.fromEmail
+	}
+
 	_, err = r.client.Emails.Send(&resend.SendEmailRequest{
-		From:    email.From,
-		To:      email.To,
+		From:    from,
+		To:      to,
 		Subject: email.Subject,
 		Html:    htmlBody.String(),
 	})

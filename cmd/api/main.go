@@ -21,6 +21,12 @@ import (
 // @description     REST API for NuvelaOne application
 // @host            localhost:8080
 // @BasePath        /api/v1
+// @schemes         http https
+// @accept          json
+// @produce         json
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 func main() {
 	cfg, err := config.Load()
 	if err != nil {
@@ -38,10 +44,8 @@ func main() {
 	log.Info("database connection established")
 
 	redisOpt := redis.NewRedisOpts(cfg.Redis.Addr, cfg.Redis.PW, cfg.Redis.DB)
-
 	redisClient := redis.NewRedisClient(redisOpt)
 	defer redisClient.Close()
-
 	log.Info("redis connection established")
 
 	taskServer := asynq.NewServer(redisOpt, asynq.Config{
@@ -50,6 +54,8 @@ func main() {
 			log.Errorw("task failed", "type", task.Type(), "error", err)
 		}),
 	})
+
+	scheduler := asynq.NewScheduler(redisOpt, nil)
 
 	var rateLimiter ratelimiter.Limiter
 	if cfg.RateLimiter.Enabled {
@@ -63,9 +69,13 @@ func main() {
 	var mail mailer.Mailer
 	var taskClient *asynq.Client
 	if cfg.Resend.APIKey != "" && cfg.Resend.FromEmail != "" {
-		mail = mailer.NewResendClient(cfg.Resend.APIKey, cfg.Resend.FromEmail)
+		mail = mailer.NewResendClient(
+			cfg.Resend.APIKey,
+			cfg.Resend.FromEmail,
+			cfg.Resend.DevEmailOverride,
+		)
 		taskClient = asynq.NewClient(redisOpt)
-		log.Info("email mailer initialized")
+		defer taskClient.Close()
 	}
 
 	app := &application{
@@ -77,6 +87,7 @@ func main() {
 		logger:      log,
 		taskClient:  taskClient,
 		taskServer:  taskServer,
+		scheduler:   scheduler,
 	}
 
 	if err := app.run(); err != nil {

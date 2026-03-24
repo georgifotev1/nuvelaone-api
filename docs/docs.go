@@ -5,6 +5,12 @@ import "github.com/swaggo/swag"
 
 const docTemplate = `{
     "schemes": {{ marshal .Schemes }},
+    "consumes": [
+        "application/json"
+    ],
+    "produces": [
+        "application/json"
+    ],
     "swagger": "2.0",
     "info": {
         "description": "{{escape .Description}}",
@@ -15,8 +21,220 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/auth/login": {
+            "post": {
+                "description": "Authenticate user with email and password, returns access token and sets refresh token cookie",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Login user",
+                "parameters": [
+                    {
+                        "description": "Login request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.LoginRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/logout": {
+            "post": {
+                "security": [
+                    {
+                        "RefreshToken": []
+                    }
+                ],
+                "description": "Invalidate refresh token and clear cookie",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Logout user",
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/refresh": {
+            "post": {
+                "security": [
+                    {
+                        "RefreshToken": []
+                    }
+                ],
+                "description": "Use refresh token cookie to get a new access token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Refresh access token",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/register": {
+            "post": {
+                "description": "Register a new user with email, password and name",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Register a new user",
+                "parameters": [
+                    {
+                        "description": "Register request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.RegisterRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.User"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get the authenticated user's profile",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get current user",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.User"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/users": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get all users (admin/owner only)",
                 "produces": [
                     "application/json"
                 ],
@@ -33,36 +251,17 @@ const docTemplate = `{
                                 "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.User"
                             }
                         }
-                    }
-                }
-            },
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "users"
-                ],
-                "summary": "Create a user",
-                "parameters": [
-                    {
-                        "description": "User payload",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.CreateUserRequest"
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
                         }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
-                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.User"
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
                         }
                     }
                 }
@@ -70,6 +269,12 @@ const docTemplate = `{
         },
         "/users/{id}": {
             "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a specific user by ID (admin/owner only)",
                 "produces": [
                     "application/json"
                 ],
@@ -79,7 +284,7 @@ const docTemplate = `{
                 "summary": "Get user by ID",
                 "parameters": [
                     {
-                        "type": "integer",
+                        "type": "string",
                         "description": "User ID",
                         "name": "id",
                         "in": "path",
@@ -92,10 +297,40 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.User"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
                     }
                 }
             },
             "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update a user's information (admin/owner only)",
                 "consumes": [
                     "application/json"
                 ],
@@ -105,18 +340,18 @@ const docTemplate = `{
                 "tags": [
                     "users"
                 ],
-                "summary": "Update a user",
+                "summary": "Update user",
                 "parameters": [
                     {
-                        "type": "integer",
+                        "type": "string",
                         "description": "User ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Update payload",
-                        "name": "body",
+                        "description": "Update request",
+                        "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -130,17 +365,47 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.User"
                         }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
                     }
                 }
             },
             "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a user by ID (admin/owner only)",
                 "tags": [
                     "users"
                 ],
-                "summary": "Delete a user",
+                "summary": "Delete user",
                 "parameters": [
                     {
-                        "type": "integer",
+                        "type": "string",
                         "description": "User ID",
                         "name": "id",
                         "in": "path",
@@ -150,13 +415,37 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse"
+                        }
                     }
                 }
             }
         }
     },
     "definitions": {
-        "github_com_georgifotev1_nuvelaone-api_internal_domain.CreateUserRequest": {
+        "github_com_georgifotev1_nuvelaone-api_internal_domain.LoginRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -167,15 +456,56 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
-                    "type": "string",
-                    "minLength": 8
+                    "type": "string"
                 }
             }
+        },
+        "github_com_georgifotev1_nuvelaone-api_internal_domain.RegisterRequest": {
+            "type": "object",
+            "required": [
+                "email",
+                "name",
+                "password"
+            ],
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "minLength": 8
+                },
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_georgifotev1_nuvelaone-api_internal_domain.Role": {
+            "type": "string",
+            "enum": [
+                "admin",
+                "owner",
+                "member"
+            ],
+            "x-enum-varnames": [
+                "RoleAdmin",
+                "RoleOwner",
+                "RoleMember"
+            ]
         },
         "github_com_georgifotev1_nuvelaone-api_internal_domain.UpdateUserRequest": {
             "type": "object",
             "properties": {
                 "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
                     "type": "string"
                 }
             }
@@ -183,6 +513,9 @@ const docTemplate = `{
         "github_com_georgifotev1_nuvelaone-api_internal_domain.User": {
             "type": "object",
             "properties": {
+                "avatar": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -190,12 +523,42 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "integer"
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "role": {
+                    "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.Role"
+                },
+                "tenant_id": {
+                    "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
+                },
+                "verified": {
+                    "type": "boolean"
                 }
             }
+        },
+        "github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     }
 }`
@@ -205,7 +568,7 @@ var SwaggerInfo = &swag.Spec{
 	Version:          "1.0.0",
 	Host:             "localhost:8080",
 	BasePath:         "/api/v1",
-	Schemes:          []string{},
+	Schemes:          []string{"http", "https"},
 	Title:            "NuvelaOne API",
 	Description:      "REST API for NuvelaOne application",
 	InfoInstanceName: "swagger",

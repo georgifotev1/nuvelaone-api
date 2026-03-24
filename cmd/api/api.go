@@ -12,6 +12,7 @@ import (
 
 	"github.com/georgifotev1/nuvelaone-api/config"
 	"github.com/georgifotev1/nuvelaone-api/internal/cache"
+	"github.com/georgifotev1/nuvelaone-api/internal/domain"
 	"github.com/georgifotev1/nuvelaone-api/internal/handler"
 	"github.com/georgifotev1/nuvelaone-api/internal/middleware"
 	"github.com/georgifotev1/nuvelaone-api/internal/repository"
@@ -40,6 +41,7 @@ type application struct {
 	logger      *zap.SugaredLogger
 	taskClient  *asynq.Client
 	taskServer  *asynq.Server
+	scheduler   *asynq.Scheduler // added
 }
 
 func (app *application) mount() http.Handler {
@@ -68,8 +70,17 @@ func (app *application) mount() http.Handler {
 
 	tenantRepo := repository.NewTenantRepository(app.db)
 	userRepo := repository.NewUserRepository(app.db, c.Users)
+	tokenRepo := repository.NewTokenRepository(app.db)
+
 	userSvc := service.NewUserService(userRepo, tenantRepo, txManager, app.taskClient, app.logger)
+	authSvc := service.NewAuthService(userRepo, tenantRepo, tokenRepo, txManager, app.taskClient, app.logger, service.AuthConfig{
+		AccessSecret:    app.config.Auth.JWTSecret,
+		AccessTokenTTL:  app.config.Auth.AccessTokenTTL,
+		RefreshTokenTTL: app.config.Auth.RefreshTokenTTL,
+	})
+
 	userHandler := handler.NewUserHandler(userSvc)
+	authHandler := handler.NewAuthHandler(authSvc, app.config.Auth.RefreshTokenTTL)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -79,23 +90,46 @@ func (app *application) mount() http.Handler {
 			httpSwagger.URL("/api/v1/swagger/doc.json"),
 		))
 
-		// Protected routes — uncomment to enable JWT auth:
-		// r.Use(middleware.JWTAuth(cfg.Auth.JWTSecret))
-		r.Route("/users", userHandler.Routes)
+		r.Route("/auth", authHandler.Routes)
+		fmt.Println("routes mounted")
+
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.JWTAuth(app.config.Auth.JWTSecret))
+
+			r.Route("/me", userHandler.MeRoutes)
+
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireRole(domain.RoleOwner, domain.RoleAdmin))
+				r.Route("/users", userHandler.Routes)
+			})
+
+		})
 	})
 
 	return r
 }
+
 func (app *application) run() error {
+	fmt.Println("CALLED RUN!")
 	go func() {
-		if err := app.taskServer.Run(tasks.RegisterTasks(&tasks.TaskHandlerDeps{
-			Mailer: app.mailer,
-			Logger: app.logger,
+		if err := app.taskServer.Run(tasks.Register(tasks.HandlerDeps{
+			Mailer:    app.mailer,
+			TokenRepo: repository.NewTokenRepository(app.db),
+			Logger:    app.logger,
 		})); err != nil {
 			app.logger.Errorw("task server error", "error", err)
 		}
 	}()
 
+	if _, err := app.scheduler.Register("0 0 * * *", tasks.NewCleanupExpiredTokensTask()); err != nil {
+		app.logger.Fatalw("failed to register cleanup task", "error", err)
+	}
+
+	go func() {
+		if err := app.scheduler.Run(); err != nil {
+			app.logger.Errorw("scheduler error", "error", err)
+		}
+	}()
 	srv := &http.Server{
 		Addr:         ":" + app.config.Address.Port,
 		Handler:      app.mount(),
@@ -119,6 +153,7 @@ func (app *application) run() error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
 	if err := srv.Shutdown(ctx); err != nil {
 		return fmt.Errorf("forced shutdown: %w", err)
 	}
@@ -126,6 +161,9 @@ func (app *application) run() error {
 
 	app.taskServer.Shutdown()
 	app.logger.Info("task server stopped")
+
+	app.scheduler.Shutdown()
+	app.logger.Info("scheduler stopped")
 
 	return nil
 }
