@@ -15,11 +15,6 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrInvalidToken       = errors.New("invalid token")
-)
-
 type AuthService interface {
 	Register(ctx context.Context, req domain.RegisterRequest) (*domain.User, error)
 	Login(ctx context.Context, req domain.LoginRequest) (*domain.TokenPair, error)
