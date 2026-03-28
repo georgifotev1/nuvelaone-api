@@ -16,7 +16,7 @@ type TaskEnqueuer interface {
 
 type UserService interface {
 	GetByID(ctx context.Context, id string) (*domain.User, error)
-	List(ctx context.Context) ([]domain.User, error)
+	List(ctx context.Context, tenandID string) ([]domain.User, error)
 	Update(ctx context.Context, id string, req domain.UpdateUserRequest) (*domain.User, error)
 	Delete(ctx context.Context, id string) error
 }
@@ -44,8 +44,8 @@ func (s *userService) GetByID(ctx context.Context, id string) (*domain.User, err
 	return user, nil
 }
 
-func (s *userService) List(ctx context.Context) ([]domain.User, error) {
-	return s.userRepo.List(ctx)
+func (s *userService) List(ctx context.Context, tenandID string) ([]domain.User, error) {
+	return s.userRepo.List(ctx, tenandID)
 }
 
 func (s *userService) Update(ctx context.Context, id string, req domain.UpdateUserRequest) (*domain.User, error) {

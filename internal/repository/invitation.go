@@ -128,7 +128,7 @@ func (r *invitationRepository) ListByTenant(ctx context.Context, tenantID string
 	}
 	defer rows.Close()
 
-	var invitations []domain.UserInvitation
+	invitations := make([]domain.UserInvitation, 0)
 	for rows.Next() {
 		var inv domain.UserInvitation
 		if err := rows.Scan(

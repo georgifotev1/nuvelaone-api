@@ -38,15 +38,12 @@ func (s *serviceService) ListByTenant(ctx context.Context, tenantID string) ([]d
 }
 
 func (s *serviceService) GetByID(ctx context.Context, tenantID, id string) (*domain.Service, error) {
-	service, err := s.repo.GetByID(ctx, id)
+	service, err := s.repo.GetByID(ctx, tenantID, id)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, ErrNotFound
 		}
 		return nil, fmt.Errorf("serviceService.GetByID: %w", err)
-	}
-	if service.TenantID != tenantID {
-		return nil, ErrForbidden
 	}
 	return service, nil
 }
@@ -88,15 +85,12 @@ func (s *serviceService) Update(ctx context.Context, tenantID, serviceID string,
 	var updated *domain.Service
 
 	err := s.tx.WithTx(ctx, func(ctx context.Context) error {
-		service, err := s.repo.GetByID(ctx, serviceID)
+		service, err := s.repo.GetByID(ctx, tenantID, serviceID)
 		if err != nil {
 			if errors.Is(err, repository.ErrNotFound) {
 				return ErrNotFound
 			}
 			return fmt.Errorf("serviceService.Update get: %w", err)
-		}
-		if service.TenantID != tenantID {
-			return ErrForbidden
 		}
 
 		if req.Title != "" {
@@ -138,17 +132,10 @@ func (s *serviceService) Update(ctx context.Context, tenantID, serviceID string,
 
 func (s *serviceService) Delete(ctx context.Context, tenantID, serviceID string) error {
 	return s.tx.WithTx(ctx, func(ctx context.Context) error {
-		service, err := s.repo.GetByID(ctx, serviceID)
-		if err != nil {
+		if err := s.repo.Delete(ctx, tenantID, serviceID); err != nil {
 			if errors.Is(err, repository.ErrNotFound) {
 				return ErrNotFound
 			}
-			return fmt.Errorf("serviceService.Delete get: %w", err)
-		}
-		if service.TenantID != tenantID {
-			return ErrForbidden
-		}
-		if err := s.repo.Delete(ctx, serviceID); err != nil {
 			return fmt.Errorf("serviceService.Delete: %w", err)
 		}
 		return nil

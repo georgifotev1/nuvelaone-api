@@ -14,7 +14,7 @@ import (
 type UserRepository interface {
 	GetByID(ctx context.Context, id string) (*domain.User, error)
 	GetByEmail(ctx context.Context, email string) (*domain.User, error)
-	List(ctx context.Context) ([]domain.User, error)
+	List(ctx context.Context, tenantID string) ([]domain.User, error)
 	Create(ctx context.Context, user *domain.User) error
 	Update(ctx context.Context, user *domain.User) error
 	Delete(ctx context.Context, id string) error
@@ -91,20 +91,34 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*domain.
 	return user, nil
 }
 
-func (r *userRepository) List(ctx context.Context) ([]domain.User, error) {
+func (r *userRepository) List(ctx context.Context, tenantID string) ([]domain.User, error) {
 	query := `
 		SELECT id, email, password, name, phone, tenant_id, avatar, role, verified, created_at, updated_at
-		FROM users ORDER BY created_at DESC`
-	rows, err := r.dbFromContext(ctx).Query(ctx, query)
+		FROM users WHERE tenant_id = $1 
+		ORDER BY created_at DESC`
+
+	rows, err := r.dbFromContext(ctx).Query(ctx, query, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("userRepository.List: %w", MapError(err))
 	}
 	defer rows.Close()
 
-	var users []domain.User
+	users := make([]domain.User, 0)
 	for rows.Next() {
 		var u domain.User
-		if err := rows.Scan(&u.ID, &u.Email, &u.Password, &u.Name, &u.Phone, &u.TenantID, &u.Avatar, &u.Role, &u.Verified, &u.CreatedAt, &u.UpdatedAt); err != nil {
+		if err := rows.Scan(
+			&u.ID,
+			&u.Email,
+			&u.Password,
+			&u.Name,
+			&u.Phone,
+			&u.TenantID,
+			&u.Avatar,
+			&u.Role,
+			&u.Verified,
+			&u.CreatedAt,
+			&u.UpdatedAt,
+		); err != nil {
 			return nil, fmt.Errorf("userRepository.List scan: %w", MapError(err))
 		}
 		users = append(users, u)

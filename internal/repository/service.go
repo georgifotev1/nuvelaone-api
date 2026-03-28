@@ -13,11 +13,11 @@ import (
 )
 
 type ServiceRepository interface {
-	GetByID(ctx context.Context, id string) (*domain.Service, error)
+	GetByID(ctx context.Context, tenantID, id string) (*domain.Service, error)
 	ListByTenant(ctx context.Context, tenantID string) ([]domain.Service, error)
 	Create(ctx context.Context, service *domain.Service) error
 	Update(ctx context.Context, service *domain.Service) error
-	Delete(ctx context.Context, id string) error
+	Delete(ctx context.Context, tenantID, id string) error
 	AssignUsers(ctx context.Context, serviceID string, userIDs []string, tenantID string) error
 	GetUserServices(ctx context.Context, serviceID string) ([]domain.UserService, error)
 }
@@ -38,21 +38,21 @@ func (r *serviceRepository) dbFromContext(ctx context.Context) txmanager.DBTX {
 	return r.pool
 }
 
-func (r *serviceRepository) GetByID(ctx context.Context, id string) (*domain.Service, error) {
+func (r *serviceRepository) GetByID(ctx context.Context, tenantID, id string) (*domain.Service, error) {
 	service, err := r.cache.Get(ctx, id)
 	if err != nil {
 		fmt.Printf("cache get failed for service:%s: %v\n", id, err)
 	}
-	if service != nil {
+	if service != nil && service.TenantID == tenantID {
 		return service, nil
 	}
 
 	query := `
 		SELECT id, title, description, duration, buffer, cost, visible, tenant_id, created_at, updated_at
-		FROM services WHERE id = $1`
+		FROM services WHERE id = $1 AND tenant_id = $2`
 
 	var s domain.Service
-	err = r.dbFromContext(ctx).QueryRow(ctx, query, id).Scan(
+	err = r.dbFromContext(ctx).QueryRow(ctx, query, id, tenantID).Scan(
 		&s.ID,
 		&s.Title,
 		&s.Description,
@@ -87,7 +87,7 @@ func (r *serviceRepository) ListByTenant(ctx context.Context, tenantID string) (
 	}
 	defer rows.Close()
 
-	var services []domain.Service
+	services := make([]domain.Service, 0)
 	for rows.Next() {
 		var s domain.Service
 		if err := rows.Scan(
@@ -162,9 +162,9 @@ func (r *serviceRepository) Update(ctx context.Context, service *domain.Service)
 	return nil
 }
 
-func (r *serviceRepository) Delete(ctx context.Context, id string) error {
-	query := `DELETE FROM services WHERE id = $1`
-	result, err := r.dbFromContext(ctx).Exec(ctx, query, id)
+func (r *serviceRepository) Delete(ctx context.Context, tenantID, id string) error {
+	query := `DELETE FROM services WHERE id = $1 AND tenant_id = $2`
+	result, err := r.dbFromContext(ctx).Exec(ctx, query, id, tenantID)
 	if err != nil {
 		return fmt.Errorf("serviceRepository.Delete: %w", MapError(err))
 	}

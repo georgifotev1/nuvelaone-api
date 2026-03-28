@@ -73,6 +73,7 @@ func (app *application) mount() http.Handler {
 	tokenRepo := repository.NewTokenRepository(app.db)
 	invitationRepo := repository.NewInvitationRepository(app.db)
 	serviceRepo := repository.NewServiceRepository(app.db, c.Services)
+	customerRepo := repository.NewCustomerRepository(app.db)
 
 	userSvc := service.NewUserService(userRepo)
 	authSvc := service.NewAuthService(userRepo, tenantRepo, tokenRepo, txManager, app.taskClient, app.logger, service.AuthConfig{
@@ -93,12 +94,14 @@ func (app *application) mount() http.Handler {
 		})
 	tenantSvc := service.NewTenantService(tenantRepo, app.logger)
 	serviceSvc := service.NewServiceService(serviceRepo, txManager)
+	customerSvc := service.NewCustomerService(customerRepo)
 
 	userHandler := handler.NewUserHandler(userSvc, app.logger)
 	authHandler := handler.NewAuthHandler(authSvc, app.config.Auth.RefreshTokenTTL, app.logger)
 	invitationHandler := handler.NewInvitationHandler(invitationSvc, app.logger)
 	tenantHandler := handler.NewTenantHandler(tenantSvc, app.logger)
 	serviceHandler := handler.NewServiceHandler(serviceSvc, app.logger)
+	customerHandler := handler.NewCustomerHandler(customerSvc, app.logger)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -157,6 +160,21 @@ func (app *application) mount() http.Handler {
 					r.Get("/", serviceHandler.GetByID)
 					r.Put("/", serviceHandler.Update)
 					r.Delete("/", serviceHandler.Delete)
+				})
+			})
+		})
+
+		r.Route("/customers", func(r chi.Router) {
+			r.Use(middleware.JWTAuth(app.config.Auth.JWTSecret))
+			r.Get("/", customerHandler.List)
+
+			r.Group(func(r chi.Router) {
+				r.Use(middleware.RequireRole(domain.RoleOwner, domain.RoleAdmin))
+				r.Post("/", customerHandler.Create)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", customerHandler.GetByID)
+					r.Put("/", customerHandler.Update)
+					r.Delete("/", customerHandler.Delete)
 				})
 			})
 		})

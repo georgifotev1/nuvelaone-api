@@ -27,7 +27,7 @@ func (m *MockUserRepository) GetByEmail(ctx context.Context, email string) (*dom
 	return args.Get(0).(*domain.User), args.Error(1)
 }
 
-func (m *MockUserRepository) List(ctx context.Context) ([]domain.User, error) {
+func (m *MockUserRepository) List(ctx context.Context, tenantID string) ([]domain.User, error) {
 	args := m.Called(ctx)
 	return args.Get(0).([]domain.User), args.Error(1)
 }

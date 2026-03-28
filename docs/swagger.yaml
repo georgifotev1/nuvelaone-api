@@ -34,6 +34,35 @@ definitions:
     - email
     - name
     type: object
+  github_com_georgifotev1_nuvelaone-api_internal_domain.Customer:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  github_com_georgifotev1_nuvelaone-api_internal_domain.CustomerRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+    required:
+    - name
+    - phone
+    type: object
   github_com_georgifotev1_nuvelaone-api_internal_domain.LoginRequest:
     properties:
       email:
@@ -381,6 +410,165 @@ paths:
       summary: Register a new user
       tags:
       - auth
+  /customers:
+    get:
+      description: Get all customers for the tenant
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.Customer'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List customers
+      tags:
+      - customers
+    post:
+      consumes:
+      - application/json
+      description: Create a new customer (owner/admin only)
+      parameters:
+      - description: Create request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.CustomerRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.Customer'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create customer
+      tags:
+      - customers
+  /customers/{id}:
+    delete:
+      description: Delete a customer (owner/admin only)
+      parameters:
+      - description: Customer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete customer
+      tags:
+      - customers
+    get:
+      description: Get a specific customer by ID
+      parameters:
+      - description: Customer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.Customer'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get customer by ID
+      tags:
+      - customers
+    put:
+      consumes:
+      - application/json
+      description: Update a customer (owner/admin only)
+      parameters:
+      - description: Customer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.CustomerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.Customer'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update customer
+      tags:
+      - customers
   /invitations:
     get:
       description: List all pending invitations for the current tenant

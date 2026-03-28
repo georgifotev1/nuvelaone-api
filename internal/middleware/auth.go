@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -34,6 +35,7 @@ func RequireRole(roles ...domain.Role) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			claims := auth.ClaimsFromContext(r.Context())
+			fmt.Println("CLAIMS", claims)
 			if claims == nil {
 				jsonutil.WriteError(w, http.StatusUnauthorized, "unauthorized")
 				return

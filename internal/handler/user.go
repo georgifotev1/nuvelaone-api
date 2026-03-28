@@ -67,7 +67,9 @@ func (h *UserHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 //	@Failure		403		{object}	jsonutil.ErrorResponse
 //	@Router			/users [get]
 func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
-	users, err := h.svc.List(r.Context())
+	ctx := r.Context()
+	claims := auth.ClaimsFromContext(ctx)
+	users, err := h.svc.List(ctx, claims.TenantID)
 	if err != nil {
 		handleError(w, err, h.logger)
 		return
