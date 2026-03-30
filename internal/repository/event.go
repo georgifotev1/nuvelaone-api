@@ -15,7 +15,8 @@ type EventRepository interface {
 	Create(ctx context.Context, event *domain.Event) error
 	GetByID(ctx context.Context, tenantID, id string) (*domain.Event, error)
 	Update(ctx context.Context, event *domain.Event) error
-	CheckUserAvailability(ctx context.Context, userID string, startTime, endTime time.Time, excludeEventID string) (bool, error)
+	CheckUserAvailability(ctx context.Context, tenantID, userID string, startTime, endTime time.Time, excludeEventID string) (bool, error)
+	List(ctx context.Context, tenantID string, startTime, endTime time.Time) ([]domain.Event, error)
 }
 
 type eventRepository struct {
@@ -60,17 +61,18 @@ func (r *eventRepository) Create(ctx context.Context, event *domain.Event) error
 	return nil
 }
 
-func (r *eventRepository) CheckUserAvailability(ctx context.Context, userID string, startTime, endTime time.Time, excludeEventID string) (bool, error) {
+func (r *eventRepository) CheckUserAvailability(ctx context.Context, tenantID, userID string, startTime, endTime time.Time, excludeEventID string) (bool, error) {
 	query := `
 		SELECT 1 FROM events 
-		WHERE user_id = $1 
+		WHERE tenant_id = $1 AND user_id = $2 
 		  AND status != 'cancelled'
-		  AND (start_time, end_time) OVERLAPS ($2, $3)
-		  AND id != $4
-		LIMIT 1`
+		  AND (start_time, end_time) OVERLAPS ($3, $4)
+		  AND id != $5
+		LIMIT 1
+		FOR UPDATE`
 
 	var exists int
-	err := r.dbFromContext(ctx).QueryRow(ctx, query, userID, startTime, endTime, excludeEventID).Scan(&exists)
+	err := r.dbFromContext(ctx).QueryRow(ctx, query, tenantID, userID, startTime, endTime, excludeEventID).Scan(&exists)
 	if err != nil {
 		if isNotFound(err) {
 			return true, nil
@@ -136,4 +138,49 @@ func (r *eventRepository) Update(ctx context.Context, event *domain.Event) error
 	}
 
 	return nil
+}
+
+func (r *eventRepository) List(ctx context.Context, tenantID string, startTime, endTime time.Time) ([]domain.Event, error) {
+	query := `
+		SELECT id, customer_id, service_id, user_id, tenant_id, start_time, end_time, status, notes, created_at, updated_at
+		FROM events
+		WHERE tenant_id = $1 AND start_time >= $2 AND start_time < $3
+		ORDER BY start_time ASC`
+
+	rows, err := r.dbFromContext(ctx).Query(ctx, query, tenantID, startTime, endTime)
+	if err != nil {
+		return nil, fmt.Errorf("eventRepository.List: %w", apperr.Internal(err))
+	}
+	defer rows.Close()
+
+	var events []domain.Event
+	for rows.Next() {
+		var e domain.Event
+		if err := rows.Scan(
+			&e.ID,
+			&e.CustomerID,
+			&e.ServiceID,
+			&e.UserID,
+			&e.TenantID,
+			&e.StartTime,
+			&e.EndTime,
+			&e.Status,
+			&e.Notes,
+			&e.CreatedAt,
+			&e.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("eventRepository.List scan: %w", apperr.Internal(err))
+		}
+		events = append(events, e)
+	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("eventRepository.List rows: %w", apperr.Internal(err))
+	}
+
+	if events == nil {
+		return []domain.Event{}, nil
+	}
+
+	return events, nil
 }

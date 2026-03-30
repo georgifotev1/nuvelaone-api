@@ -96,7 +96,7 @@ func (app *application) mount() http.Handler {
 	tenantSvc := service.NewTenantService(tenantRepo, app.logger)
 	serviceSvc := service.NewServiceService(serviceRepo, txManager)
 	customerSvc := service.NewCustomerService(customerRepo)
-	eventSvc := service.NewEventService(eventRepo, serviceRepo, customerRepo, txManager)
+	eventSvc := service.NewEventService(eventRepo, serviceRepo, customerRepo, userRepo, txManager)
 
 	userHandler := handler.NewUserHandler(userSvc)
 	authHandler := handler.NewAuthHandler(authSvc, app.config.Auth.RefreshTokenTTL)
@@ -184,6 +184,7 @@ func (app *application) mount() http.Handler {
 
 		r.Route("/events", func(r chi.Router) {
 			r.Use(middleware.JWTAuth(app.config.Auth.JWTSecret))
+			r.Get("/", eventHandler.List)
 			r.Post("/", eventHandler.Create)
 			r.Put("/{id}", eventHandler.Update)
 		})

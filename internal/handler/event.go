@@ -96,3 +96,42 @@ func (h *EventHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	jsonutil.Write(w, http.StatusOK, jsonutil.NewResponse(event))
 }
+
+// List godoc
+//
+//	@Summary		List events
+//	@Description	List events with date filtering
+//	@Tags			events
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			startDate	query		string	true	"Start date (YYYY-MM-DD)"
+//	@Param			endDate		query		string	true	"End date (YYYY-MM-DD)"
+//	@Success		200		{object}	jsonutil.Response[[]domain.Event]
+//	@Failure		400		{object}	jsonutil.ErrorResponse
+//	@Failure		401		{object}	jsonutil.ErrorResponse
+//	@Router			/events [get]
+func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	claims := auth.ClaimsFromContext(ctx)
+
+	startDate := r.URL.Query().Get("startDate")
+	endDate := r.URL.Query().Get("endDate")
+
+	if startDate == "" || endDate == "" {
+		jsonutil.WriteError(w, http.StatusBadRequest, "startDate and endDate are required")
+		return
+	}
+
+	filter := domain.EventListFilter{
+		StartDate: startDate,
+		EndDate:   endDate,
+	}
+
+	events, err := h.svc.List(ctx, claims.TenantID, filter)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	jsonutil.Write(w, http.StatusOK, jsonutil.NewResponse(events))
+}

@@ -34,3 +34,8 @@ type EventUpdateRequest struct {
 	Status     string    `json:"status"`
 	Notes      string    `json:"notes"`
 }
+
+type EventListFilter struct {
+	StartDate string
+	EndDate   string
+}

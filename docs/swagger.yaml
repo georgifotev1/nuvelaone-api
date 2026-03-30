@@ -63,6 +63,69 @@ definitions:
     - name
     - phone
     type: object
+  github_com_georgifotev1_nuvelaone-api_internal_domain.Event:
+    properties:
+      created_at:
+        type: string
+      customer_id:
+        type: string
+      end_time:
+        type: string
+      id:
+        type: string
+      notes:
+        type: string
+      service_id:
+        type: string
+      start_time:
+        type: string
+      status:
+        type: string
+      tenant_id:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  github_com_georgifotev1_nuvelaone-api_internal_domain.EventRequest:
+    properties:
+      customer_id:
+        type: string
+      end_time:
+        type: string
+      notes:
+        type: string
+      service_id:
+        type: string
+      start_time:
+        type: string
+      user_id:
+        type: string
+    required:
+    - customer_id
+    - end_time
+    - service_id
+    - start_time
+    - user_id
+    type: object
+  github_com_georgifotev1_nuvelaone-api_internal_domain.EventUpdateRequest:
+    properties:
+      customer_id:
+        type: string
+      end_time:
+        type: string
+      notes:
+        type: string
+      service_id:
+        type: string
+      start_time:
+        type: string
+      status:
+        type: string
+      user_id:
+        type: string
+    type: object
   github_com_georgifotev1_nuvelaone-api_internal_domain.LoginRequest:
     properties:
       email:
@@ -284,6 +347,13 @@ definitions:
     properties:
       error:
         type: string
+    type: object
+  github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.Response-array_github_com_georgifotev1_nuvelaone-api_internal_domain_Event:
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.Event'
+        type: array
     type: object
   internal_handler.TenantResponse:
     properties:
@@ -569,6 +639,116 @@ paths:
       summary: Update customer
       tags:
       - customers
+  /events:
+    get:
+      description: List events with date filtering
+      parameters:
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: startDate
+        required: true
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: endDate
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.Response-array_github_com_georgifotev1_nuvelaone-api_internal_domain_Event'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List events
+      tags:
+      - events
+    post:
+      consumes:
+      - application/json
+      description: Create a new event
+      parameters:
+      - description: Create request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.EventRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.Event'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create event
+      tags:
+      - events
+  /events/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Update an existing event
+      parameters:
+      - description: Event ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.EventUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.Event'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_pkg_jsonutil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update event
+      tags:
+      - events
   /invitations:
     get:
       description: List all pending invitations for the current tenant
