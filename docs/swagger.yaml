@@ -1114,7 +1114,8 @@ paths:
       - public
   /p/{slug}/services:
     get:
-      description: Get all visible services for the tenant (public endpoint)
+      description: Get all visible services for the tenant that have at least one
+        provider (public endpoint)
       parameters:
       - description: Tenant slug
         in: path
@@ -1131,6 +1132,32 @@ paths:
               $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.Service'
             type: array
       summary: List visible services
+      tags:
+      - public
+  /p/{slug}/services/{id}/providers:
+    get:
+      description: Returns all users who can perform this service
+      parameters:
+      - description: Tenant slug
+        in: path
+        name: slug
+        required: true
+        type: string
+      - description: Service ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.User'
+            type: array
+      summary: Get providers for a service
       tags:
       - public
   /p/{slug}/timeslots:

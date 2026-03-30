@@ -206,6 +206,7 @@ func (app *application) mount() http.Handler {
 			})
 
 			r.Get("/services", serviceHandler.ListPublic)
+			r.Get("/services/{id}/providers", serviceHandler.GetProviders)
 			r.Get("/timeslots", eventHandler.GetTimeslots)
 
 			r.Group(func(r chi.Router) {

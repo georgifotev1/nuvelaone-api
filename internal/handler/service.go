@@ -45,7 +45,7 @@ func (h *ServiceHandler) List(w http.ResponseWriter, r *http.Request) {
 // ListPublic godoc
 //
 //	@Summary		List visible services
-//	@Description	Get all visible services for the tenant (public endpoint)
+//	@Description	Get all visible services for the tenant that have at least one provider (public endpoint)
 //	@Tags			public
 //	@Produce		json
 //	@Param			slug	path		string	true	"Tenant slug"
@@ -66,6 +66,39 @@ func (h *ServiceHandler) ListPublic(w http.ResponseWriter, r *http.Request) {
 	}
 
 	jsonutil.Write(w, http.StatusOK, jsonutil.NewResponse(services))
+}
+
+// GetProviders godoc
+//
+//	@Summary		Get providers for a service
+//	@Description	Returns all users who can perform this service
+//	@Tags			public
+//	@Produce		json
+//	@Param			slug	path		string	true	"Tenant slug"
+//	@Param			id		path		string	true	"Service ID"
+//	@Success		200	{array}		domain.User
+//	@Router			/p/{slug}/services/{id}/providers [get]
+func (h *ServiceHandler) GetProviders(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	tenant := domain.TenantFromContext(ctx)
+	if tenant == nil {
+		jsonutil.WriteError(w, http.StatusBadRequest, "tenant not found")
+		return
+	}
+
+	id := chi.URLParam(r, "id")
+	if id == "" {
+		jsonutil.WriteError(w, http.StatusBadRequest, "invalid id")
+		return
+	}
+
+	providers, err := h.svc.GetProviders(ctx, tenant.ID, id)
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+
+	jsonutil.Write(w, http.StatusOK, jsonutil.NewResponse(providers))
 }
 
 // GetByID godoc

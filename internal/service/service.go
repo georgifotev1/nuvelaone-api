@@ -18,6 +18,7 @@ type ServiceService interface {
 	Create(ctx context.Context, tenantID string, req domain.ServiceRequest) (*domain.Service, error)
 	Update(ctx context.Context, tenantID, serviceID string, req domain.ServiceRequest) (*domain.Service, error)
 	Delete(ctx context.Context, tenantID, serviceID string) error
+	GetProviders(ctx context.Context, tenantID, serviceID string) ([]domain.User, error)
 }
 
 type serviceService struct {
@@ -139,4 +140,12 @@ func (s *serviceService) Delete(ctx context.Context, tenantID, serviceID string)
 		}
 		return nil
 	})
+}
+
+func (s *serviceService) GetProviders(ctx context.Context, tenantID, serviceID string) ([]domain.User, error) {
+	providers, err := s.repo.GetProvidersByService(ctx, tenantID, serviceID)
+	if err != nil {
+		return nil, fmt.Errorf("serviceService.GetProviders: %w", err)
+	}
+	return providers, nil
 }

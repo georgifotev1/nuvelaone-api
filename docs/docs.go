@@ -1118,7 +1118,7 @@ const docTemplate = `{
         },
         "/p/{slug}/services": {
             "get": {
-                "description": "Get all visible services for the tenant (public endpoint)",
+                "description": "Get all visible services for the tenant that have at least one provider (public endpoint)",
                 "produces": [
                     "application/json"
                 ],
@@ -1142,6 +1142,45 @@ const docTemplate = `{
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.Service"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/p/{slug}/services/{id}/providers": {
+            "get": {
+                "description": "Returns all users who can perform this service",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "public"
+                ],
+                "summary": "Get providers for a service",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Tenant slug",
+                        "name": "slug",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Service ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/github_com_georgifotev1_nuvelaone-api_internal_domain.User"
                             }
                         }
                     }

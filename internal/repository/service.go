@@ -22,6 +22,7 @@ type ServiceRepository interface {
 	Delete(ctx context.Context, tenantID, id string) error
 	AssignUsers(ctx context.Context, serviceID string, userIDs []string, tenantID string) error
 	GetUserServices(ctx context.Context, serviceID string) ([]domain.UserService, error)
+	GetProvidersByService(ctx context.Context, tenantID, serviceID string) ([]domain.User, error)
 }
 
 type serviceRepository struct {
@@ -119,9 +120,12 @@ func (r *serviceRepository) ListByTenant(ctx context.Context, tenantID string) (
 
 func (r *serviceRepository) ListVisible(ctx context.Context, tenantID string) ([]domain.Service, error) {
 	query := `
-		SELECT id, title, description, duration, buffer, cost, visible, tenant_id, created_at, updated_at
-		FROM services WHERE tenant_id = $1 AND visible = true
-		ORDER BY created_at DESC`
+		SELECT s.id, s.title, s.description, s.duration, s.buffer, s.cost, s.visible, s.tenant_id, s.created_at, s.updated_at
+		FROM services s
+		INNER JOIN user_services us ON s.id = us.service_id
+		WHERE s.tenant_id = $1 AND s.visible = true
+		GROUP BY s.id
+		ORDER BY s.created_at DESC`
 
 	rows, err := r.dbFromContext(ctx).Query(ctx, query, tenantID)
 	if err != nil {
@@ -283,4 +287,44 @@ func (r *serviceRepository) GetUserServices(ctx context.Context, serviceID strin
 		return nil, fmt.Errorf("serviceRepository.GetUserServices: %w", apperr.Internal(rows.Err()))
 	}
 	return userServices, nil
+}
+
+func (r *serviceRepository) GetProvidersByService(ctx context.Context, tenantID, serviceID string) ([]domain.User, error) {
+	query := `
+		SELECT u.id, u.email, u.password, u.name, u.phone, u.tenant_id, u.avatar, u.role, u.verified, u.created_at, u.updated_at
+		FROM users u
+		INNER JOIN user_services us ON u.id = us.user_id
+		WHERE us.service_id = $1 AND u.tenant_id = $2
+		ORDER BY u.name ASC`
+
+	rows, err := r.dbFromContext(ctx).Query(ctx, query, serviceID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("serviceRepository.GetProvidersByService: %w", apperr.Internal(err))
+	}
+	defer rows.Close()
+
+	var users []domain.User
+	for rows.Next() {
+		var u domain.User
+		if err := rows.Scan(
+			&u.ID,
+			&u.Email,
+			&u.Password,
+			&u.Name,
+			&u.Phone,
+			&u.TenantID,
+			&u.Avatar,
+			&u.Role,
+			&u.Verified,
+			&u.CreatedAt,
+			&u.UpdatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("serviceRepository.GetProvidersByService scan: %w", apperr.Internal(err))
+		}
+		users = append(users, u)
+	}
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("serviceRepository.GetProvidersByService: %w", apperr.Internal(rows.Err()))
+	}
+	return users, nil
 }
