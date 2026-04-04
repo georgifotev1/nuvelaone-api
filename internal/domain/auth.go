@@ -2,6 +2,11 @@ package domain
 
 import "time"
 
+const (
+	TokenEntityUser     = "user"
+	TokenEntityCustomer = "customer"
+)
+
 type TokenPair struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
@@ -22,8 +27,8 @@ type LoginRequest struct {
 
 type RefreshToken struct {
 	ID         string
-	UserID     string
-	CustomerID string
+	EntityID   string
+	EntityType string // "user" | "customer"
 	TenantID   string
 	TokenHash  string
 	ExpiresAt  time.Time

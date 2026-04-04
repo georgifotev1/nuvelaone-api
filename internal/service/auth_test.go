@@ -282,26 +282,29 @@ func TestAuthService_Refresh(t *testing.T) {
 		Role:     domain.RoleOwner,
 	}
 	testToken := &domain.RefreshToken{
-		ID:        ksuid.New().String(),
-		UserID:    userID,
-		TokenHash: "hashed-token",
-		ExpiresAt: now.Add(time.Hour),
-		CreatedAt: now,
+		ID:         ksuid.New().String(),
+		EntityID:   userID,
+		EntityType: domain.TokenEntityUser,
+		TokenHash:  "hashed-token",
+		ExpiresAt:  now.Add(time.Hour),
+		CreatedAt:  now,
 	}
 	expiredToken := &domain.RefreshToken{
-		ID:        ksuid.New().String(),
-		UserID:    userID,
-		TokenHash: "hashed-expired-token",
-		ExpiresAt: now.Add(-time.Hour),
-		CreatedAt: now.Add(-time.Hour * 2),
+		ID:         ksuid.New().String(),
+		EntityID:   userID,
+		EntityType: domain.TokenEntityUser,
+		TokenHash:  "hashed-expired-token",
+		ExpiresAt:  now.Add(-time.Hour),
+		CreatedAt:  now.Add(-time.Hour * 2),
 	}
 	revokedToken := &domain.RefreshToken{
-		ID:        ksuid.New().String(),
-		UserID:    userID,
-		TokenHash: "hashed-revoked-token",
-		ExpiresAt: now.Add(time.Hour),
-		CreatedAt: now,
-		RevokedAt: &now,
+		ID:         ksuid.New().String(),
+		EntityID:   userID,
+		EntityType: domain.TokenEntityUser,
+		TokenHash:  "hashed-revoked-token",
+		ExpiresAt:  now.Add(time.Hour),
+		CreatedAt:  now,
+		RevokedAt:  &now,
 	}
 
 	tests := []struct {

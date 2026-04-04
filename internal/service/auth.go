@@ -169,18 +169,24 @@ func (s *authService) Refresh(ctx context.Context, rawRefreshToken string) (*dom
 	if err != nil {
 		return nil, apperr.Unauthorized("invalid token")
 	}
+
 	if stored.RevokedAt != nil {
-		s.logger.Warnw("reuse of revoked refresh token", "userID", stored.UserID)
-		if err := s.tokenRepo.RevokeAllForUser(ctx, stored.UserID); err != nil {
-			s.logger.Errorw("failed to revoke all tokens", "error", err, "userID", stored.UserID)
+		s.logger.Warnw("reuse of revoked refresh token", "entityID", stored.EntityID)
+		if err := s.tokenRepo.RevokeAllForUser(ctx, stored.EntityID); err != nil {
+			s.logger.Errorw("failed to revoke all tokens", "error", err, "entityID", stored.EntityID)
 		}
 		return nil, apperr.Unauthorized("invalid token")
 	}
+
 	if stored.ExpiresAt.Before(time.Now()) {
 		return nil, apperr.Unauthorized("token expired")
 	}
 
-	user, err := s.userRepo.GetByID(ctx, stored.UserID)
+	if stored.EntityType != domain.TokenEntityUser {
+		return nil, apperr.Unauthorized("invalid token")
+	}
+
+	user, err := s.userRepo.GetByID(ctx, stored.EntityID)
 	if err != nil {
 		return nil, apperr.Unauthorized("invalid token")
 	}
@@ -212,11 +218,13 @@ func (s *authService) issueTokenPair(ctx context.Context, user *domain.User) (*d
 	}
 
 	if err := s.tokenRepo.Store(ctx, &domain.RefreshToken{
-		ID:        ksuid.New().String(),
-		UserID:    user.ID,
-		TokenHash: auth.HashToken(rawRefresh),
-		ExpiresAt: time.Now().Add(s.cfg.RefreshTokenTTL),
-		CreatedAt: time.Now(),
+		ID:         ksuid.New().String(),
+		EntityID:   user.ID,
+		EntityType: domain.TokenEntityUser,
+		TenantID:   user.TenantID,
+		TokenHash:  auth.HashToken(rawRefresh),
+		ExpiresAt:  time.Now().Add(s.cfg.RefreshTokenTTL),
+		CreatedAt:  time.Now(),
 	}); err != nil {
 		return nil, fmt.Errorf("issueTokenPair store: %w", err)
 	}

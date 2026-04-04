@@ -97,10 +97,10 @@ func (s *customerAuthService) Refresh(ctx context.Context, rawRefreshToken strin
 		return nil, apperr.Unauthorized("invalid token")
 	}
 	if stored.RevokedAt != nil {
-		s.logger.Warnw("reuse of revoked refresh token", "customerID", stored.CustomerID)
-		if stored.CustomerID != "" {
-			if err := s.tokenRepo.RevokeAllForCustomer(ctx, stored.CustomerID); err != nil {
-				s.logger.Errorw("failed to revoke all tokens", "error", err, "customerID", stored.CustomerID)
+		s.logger.Warnw("reuse of revoked refresh token", "entityID", stored.EntityID)
+		if stored.EntityType == domain.TokenEntityCustomer {
+			if err := s.tokenRepo.RevokeAllForCustomer(ctx, stored.EntityID); err != nil {
+				s.logger.Errorw("failed to revoke all tokens", "error", err, "entityID", stored.EntityID)
 			}
 		}
 		return nil, apperr.Unauthorized("invalid token")
@@ -109,11 +109,11 @@ func (s *customerAuthService) Refresh(ctx context.Context, rawRefreshToken strin
 		return nil, apperr.Unauthorized("token expired")
 	}
 
-	if stored.CustomerID == "" {
+	if stored.EntityType != domain.TokenEntityCustomer {
 		return nil, apperr.Unauthorized("invalid token")
 	}
 
-	customer, err := s.customerRepo.GetByID(ctx, stored.TenantID, stored.CustomerID)
+	customer, err := s.customerRepo.GetByID(ctx, stored.TenantID, stored.EntityID)
 	if err != nil {
 		return nil, apperr.Unauthorized("invalid token")
 	}
@@ -151,7 +151,8 @@ func (s *customerAuthService) issueTokenPair(ctx context.Context, customer *doma
 
 	if err := s.tokenRepo.Store(ctx, &domain.RefreshToken{
 		ID:         ksuid.New().String(),
-		CustomerID: customer.ID,
+		EntityID:   customer.ID,
+		EntityType: domain.TokenEntityCustomer,
 		TenantID:   customer.TenantID,
 		TokenHash:  auth.HashToken(rawRefresh),
 		ExpiresAt:  time.Now().Add(s.cfg.RefreshTokenTTL),

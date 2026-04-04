@@ -77,7 +77,7 @@ func Load() (*Config, error) {
 			RefreshTokenTTL:   getEnvDuration("REFRESH_TOKEN_TTL", 720*time.Hour),
 		},
 		CORS: CORSConfig{
-			AllowedOrigins: getEnv("CORS_ALLOWED_ORIGIN", "http://localhost:5174"),
+			AllowedOrigins: getEnv("CORS_ALLOWED_ORIGIN", "http://localhost:5173"),
 		},
 		Redis: RedisConfig{
 			Addr: getEnv("REDIS_ADDR", "localhost:6379"),
