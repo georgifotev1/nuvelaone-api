@@ -30,11 +30,27 @@ func NewServiceService(repo repository.ServiceRepository, tx txmanager.TxManager
 	return &serviceService{repo: repo, tx: tx}
 }
 
+func normalizeProviderIDs(ids []string) []string {
+	if ids == nil {
+		return []string{}
+	}
+	return ids
+}
+
 func (s *serviceService) ListByTenant(ctx context.Context, tenantID string) ([]domain.Service, error) {
 	services, err := s.repo.ListByTenant(ctx, tenantID)
 	if err != nil {
 		return nil, fmt.Errorf("serviceService.ListByTenant: %w", err)
 	}
+
+	for i := range services {
+		providerIDs, err := s.repo.GetProviderIDsByService(ctx, tenantID, services[i].ID)
+		if err != nil {
+			return nil, fmt.Errorf("serviceService.ListByTenant providers: %w", err)
+		}
+		services[i].ProviderIDs = normalizeProviderIDs(providerIDs)
+	}
+
 	return services, nil
 }
 
@@ -43,6 +59,15 @@ func (s *serviceService) ListVisible(ctx context.Context, tenantID string) ([]do
 	if err != nil {
 		return nil, fmt.Errorf("serviceService.ListVisible: %w", err)
 	}
+
+	for i := range services {
+		providerIDs, err := s.repo.GetProviderIDsByService(ctx, tenantID, services[i].ID)
+		if err != nil {
+			return nil, fmt.Errorf("serviceService.ListVisible providers: %w", err)
+		}
+		services[i].ProviderIDs = normalizeProviderIDs(providerIDs)
+	}
+
 	return services, nil
 }
 
@@ -51,6 +76,13 @@ func (s *serviceService) GetByID(ctx context.Context, tenantID, id string) (*dom
 	if err != nil {
 		return nil, fmt.Errorf("serviceService.GetByID: %w", err)
 	}
+
+	providerIDs, err := s.repo.GetProviderIDsByService(ctx, tenantID, id)
+	if err != nil {
+		return nil, fmt.Errorf("serviceService.GetByID providers: %w", err)
+	}
+	service.ProviderIDs = normalizeProviderIDs(providerIDs)
+
 	return service, nil
 }
 
@@ -67,6 +99,7 @@ func (s *serviceService) Create(ctx context.Context, tenantID string, req domain
 		TenantID:    tenantID,
 		CreatedAt:   now,
 		UpdatedAt:   now,
+		ProviderIDs: normalizeProviderIDs(req.UserIDs),
 	}
 
 	err := s.tx.WithTx(ctx, func(ctx context.Context) error {
@@ -117,10 +150,18 @@ func (s *serviceService) Update(ctx context.Context, tenantID, serviceID string,
 		if err := s.repo.Update(ctx, service); err != nil {
 			return fmt.Errorf("serviceService.Update repo: %w", err)
 		}
+
 		if req.UserIDs != nil {
 			if err := s.repo.AssignUsers(ctx, service.ID, req.UserIDs, tenantID); err != nil {
 				return fmt.Errorf("serviceService.Update assign users: %w", err)
 			}
+			service.ProviderIDs = normalizeProviderIDs(req.UserIDs)
+		} else {
+			providerIDs, err := s.repo.GetProviderIDsByService(ctx, tenantID, serviceID)
+			if err != nil {
+				return fmt.Errorf("serviceService.Update get providers: %w", err)
+			}
+			service.ProviderIDs = normalizeProviderIDs(providerIDs)
 		}
 
 		updated = service

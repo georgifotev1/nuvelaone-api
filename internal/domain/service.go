@@ -13,6 +13,7 @@ type Service struct {
 	TenantID    string    `json:"tenant_id"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	ProviderIDs []string  `json:"provider_ids"`
 }
 
 type ServiceRequest struct {

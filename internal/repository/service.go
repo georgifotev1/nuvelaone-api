@@ -23,6 +23,7 @@ type ServiceRepository interface {
 	AssignUsers(ctx context.Context, serviceID string, userIDs []string, tenantID string) error
 	GetUserServices(ctx context.Context, serviceID string) ([]domain.UserService, error)
 	GetProvidersByService(ctx context.Context, tenantID, serviceID string) ([]domain.User, error)
+	GetProviderIDsByService(ctx context.Context, tenantID, serviceID string) ([]string, error)
 }
 
 type serviceRepository struct {
@@ -327,4 +328,31 @@ func (r *serviceRepository) GetProvidersByService(ctx context.Context, tenantID,
 		return nil, fmt.Errorf("serviceRepository.GetProvidersByService: %w", apperr.Internal(rows.Err()))
 	}
 	return users, nil
+}
+
+func (r *serviceRepository) GetProviderIDsByService(ctx context.Context, tenantID, serviceID string) ([]string, error) {
+	query := `
+		SELECT us.user_id FROM user_services us
+		INNER JOIN users u ON u.id = us.user_id
+		WHERE us.service_id = $1 AND us.tenant_id = $2
+		ORDER BY u.name ASC`
+
+	rows, err := r.dbFromContext(ctx).Query(ctx, query, serviceID, tenantID)
+	if err != nil {
+		return nil, fmt.Errorf("serviceRepository.GetProviderIDsByService: %w", apperr.Internal(err))
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("serviceRepository.GetProviderIDsByService scan: %w", apperr.Internal(err))
+		}
+		ids = append(ids, id)
+	}
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("serviceRepository.GetProviderIDsByService: %w", apperr.Internal(rows.Err()))
+	}
+	return ids, nil
 }
