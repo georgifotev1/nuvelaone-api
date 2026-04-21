@@ -36,7 +36,7 @@ func (r *customerRepository) dbFromContext(ctx context.Context) txmanager.DBTX {
 
 func (r *customerRepository) GetByID(ctx context.Context, tenantID, id string) (*domain.Customer, error) {
 	query := `
-		SELECT id, tenant_id, name, email, password, phone, created_at, updated_at
+		SELECT id, tenant_id, name, email, phone, created_at, updated_at
 		FROM customers WHERE id = $1 AND tenant_id = $2`
 
 	var c domain.Customer
@@ -45,7 +45,6 @@ func (r *customerRepository) GetByID(ctx context.Context, tenantID, id string) (
 		&c.TenantID,
 		&c.Name,
 		&c.Email,
-		&c.Password,
 		&c.Phone,
 		&c.CreatedAt,
 		&c.UpdatedAt,
@@ -145,7 +144,7 @@ func (r *customerRepository) Create(ctx context.Context, customer *domain.Custom
 func (r *customerRepository) Update(ctx context.Context, customer *domain.Customer) error {
 	query := `
 		UPDATE customers
-		SET name = $2, email = $3, phone = $4, password = COALESCE(NULLIF($5, ''), password), updated_at = $6
+		SET name = $2, email = $3, phone = $4, password = COALESCE($5, password), updated_at = $6
 		WHERE id = $1`
 
 	result, err := r.dbFromContext(ctx).Exec(ctx, query,

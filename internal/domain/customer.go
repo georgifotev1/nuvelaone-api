@@ -7,7 +7,7 @@ type Customer struct {
 	TenantID  string    `json:"tenant_id"`
 	Name      string    `json:"name"`
 	Email     *string   `json:"email,omitempty"`
-	Password  string    `json:"-"`
+	Password  *string   `json:"-"`
 	Phone     string    `json:"phone"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

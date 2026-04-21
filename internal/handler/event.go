@@ -114,11 +114,11 @@ func (h *EventHandler) List(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	claims := auth.ClaimsFromContext(ctx)
 
-	startDate := r.URL.Query().Get("startDate")
-	endDate := r.URL.Query().Get("endDate")
+	startDate := r.URL.Query().Get("start_date")
+	endDate := r.URL.Query().Get("end_date")
 
 	if startDate == "" || endDate == "" {
-		jsonutil.WriteError(w, http.StatusBadRequest, "startDate and endDate are required")
+		jsonutil.WriteError(w, http.StatusBadRequest, "start_date and end_date are required")
 		return
 	}
 

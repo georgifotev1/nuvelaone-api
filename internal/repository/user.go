@@ -50,7 +50,7 @@ func (r *userRepository) GetByID(ctx context.Context, id string) (*domain.User, 
 	}
 
 	query := `
-		SELECT id, email, password, name, phone, tenant_id, avatar, role, verified, created_at, updated_at
+		SELECT id, email, name, phone, tenant_id, avatar, role, verified, created_at, updated_at
 		FROM users WHERE id = $1`
 
 	row := r.dbFromContext(ctx).QueryRow(ctx, query, id)
@@ -58,7 +58,6 @@ func (r *userRepository) GetByID(ctx context.Context, id string) (*domain.User, 
 	err = row.Scan(
 		&user.ID,
 		&user.Email,
-		&user.Password,
 		&user.Name,
 		&user.Phone,
 		&user.TenantID,

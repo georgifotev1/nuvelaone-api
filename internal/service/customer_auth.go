@@ -54,12 +54,13 @@ func (s *customerAuthService) Register(ctx context.Context, tenantID string, req
 	}
 
 	now := time.Now()
+	hashedStr := string(hashed)
 	customer := &domain.Customer{
 		ID:        ksuid.New().String(),
 		TenantID:  tenantID,
 		Name:      req.Name,
 		Email:     &req.Email,
-		Password:  string(hashed),
+		Password:  &hashedStr,
 		Phone:     req.Phone,
 		CreatedAt: now,
 		UpdatedAt: now,
@@ -78,11 +79,11 @@ func (s *customerAuthService) Login(ctx context.Context, tenantID string, req do
 		return nil, apperr.Unauthorized("invalid credentials")
 	}
 
-	if customer.Password == "" {
+	if customer.Password == nil {
 		return nil, apperr.Unauthorized("invalid credentials")
 	}
 
-	if !auth.CheckPassword(req.Password, customer.Password) {
+	if !auth.CheckPassword(req.Password, *customer.Password) {
 		return nil, apperr.Unauthorized("invalid credentials")
 	}
 

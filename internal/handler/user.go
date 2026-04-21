@@ -72,7 +72,7 @@ func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	jsonutil.Write(w, http.StatusOK, users)
+	jsonutil.Write(w, http.StatusOK, jsonutil.NewResponse(users))
 }
 
 // GetByID godoc

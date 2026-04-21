@@ -1,6 +1,9 @@
 package errors
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 type AppError struct {
 	Code    string
@@ -44,5 +47,5 @@ func Validation(message string) *AppError {
 }
 
 func Internal(err error) *AppError {
-	return &AppError{Code: "INTERNAL", Message: "an internal error occurred", Err: err}
+	return &AppError{Code: "INTERNAL", Message: "an internal error occurred", Err: fmt.Errorf("%w: %w", ErrInternal, err)}
 }
